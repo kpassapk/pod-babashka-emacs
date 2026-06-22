@@ -1,1 +1,3 @@
-{:paths ["src" "resources"]}
+{:paths ["src" "resources"]
+ :tasks {test {:doc  "Run the pod test suite (loads the pod, runs clojure.test)."
+               :task (shell "bb scripts/run-tests.clj")}}}
