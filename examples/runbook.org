@@ -1,0 +1,27 @@
+#+TITLE: Release Runbook
+
+* Steps
+  A literate runbook: each step below is a *named* org-babel src block.
+  A babashka driver runs the steps by name through the pod and works with
+  the captured output as ordinary data. Mixed languages are fine — the pod
+  autoloads each block's backend.
+
+#+name: env
+#+begin_src sh
+echo "$(uname -s) $(uname -m)"
+#+end_src
+
+#+name: build
+#+begin_src sh
+echo "artifact-1.0.0.tgz"
+#+end_src
+
+#+name: size
+#+begin_src sh
+printf '%s' "artifact-1.0.0.tgz" | wc -c | tr -d ' '
+#+end_src
+
+#+name: summary
+#+begin_src emacs-lisp
+(format "%d steps wired" 4)
+#+end_src

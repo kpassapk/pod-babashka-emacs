@@ -46,6 +46,9 @@
   ([path opts] ((resolve 'pod.babashka.emacs.org/headlines) path opts)))
 (defn- to-edn
   ([path]      ((resolve 'pod.babashka.emacs.org/to-edn) path)))
+(defn- execute
+  ([path]      ((resolve 'pod.babashka.emacs.org/execute) path))
+  ([path opts] ((resolve 'pod.babashka.emacs.org/execute) path opts)))
 
 ;;;; ------------------------------------------------------------- helpers
 
@@ -175,3 +178,30 @@
     (let [{:keys [children]} (to-edn sample-org)
           all (tree-seq #(seq (:children %)) :children {:children children})]
       (is (some :body all) "at least one node should carry :body text"))))
+
+;;;; ------------------------------------------------------------- org/execute
+
+(deftest org-execute-test
+  (testing ":index 0 runs the first src block (sh echo) and returns its output"
+    (is (= "hello" (execute sample-org {:index 0}))))
+
+  (testing ":index out of range throws with a range message"
+    (let [e (try (execute sample-org {:index 99}) (catch Exception e e))]
+      (is (some? e))
+      (is (re-find #"(?i)out of range" (ex-message e)))))
+
+  (testing "no selector on a multi-block file throws and asks to disambiguate"
+    (let [e (try (execute sample-org) (catch Exception e e))]
+      (is (some? e))
+      (is (re-find #":name or :index" (ex-message e)))))
+
+  (testing ":name selects by #+name: and the lang backend autoloads"
+    (let [tmp (java.io.File/createTempFile "pod-exec" ".org")]
+      (try
+        (spit tmp (str "#+name: greet\n"
+                       "#+begin_src sh\necho hi-from-name\n#+end_src\n\n"
+                       "#+name: addup\n"
+                       "#+begin_src emacs-lisp\n(+ 40 2)\n#+end_src\n"))
+        (is (= "hi-from-name" (execute (.getPath tmp) {:name "greet"})))
+        (is (= 42 (execute (.getPath tmp) {:name "addup"})))
+        (finally (.delete tmp))))))

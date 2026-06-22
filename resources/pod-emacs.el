@@ -60,7 +60,8 @@
      "name" "pod.babashka.emacs.org"
      "vars" (list (pod-emacs--var "outline")
                   (pod-emacs--var "headlines")
-                  (pod-emacs--var "to-edn"))))
+                  (pod-emacs--var "to-edn")
+                  (pod-emacs--var "execute"))))
    "ops" (pod-emacs--ht "shutdown" (make-hash-table :test 'equal))))
 
 ;;;; ---------------------------------------------------------------- eval
@@ -96,6 +97,8 @@
     (pod-emacs-org-headlines (nth 0 args) (nth 1 args)))
    ((equal var "pod.babashka.emacs.org/to-edn")
     (pod-emacs-org-to-edn (nth 0 args)))
+   ((equal var "pod.babashka.emacs.org/execute")
+    (pod-emacs-org-execute (nth 0 args) (nth 1 args)))
    (t (error "Unknown pod var: %s" var))))
 
 ;;;; ---------------------------------------------------------------- dispatch

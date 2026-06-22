@@ -21,5 +21,22 @@
    DEADLINE: <2026-07-01 Wed>
 *** TODO Transport layer
 *** TODO Org reader
+** TODO Org-babel code blocks
+
+API to execute this code block.
+
+#+begin_src sh
+echo hello
+#+end_src
+
+** TODO Org-babel tangling
+
+API to tangle this file to the current directory
+
+#+begin_src yaml :tangle sample.yaml
+---
+foo: bar
+#+end_src
+
 * Done
 ** DONE Initial spike :dev:

@@ -1,28 +1,35 @@
 # pod-babashka-emacs
 
-A [babashka pod](https://github.com/babashka/pods) that exposes Emacs to
-babashka scripts. Load it and you can evaluate arbitrary Emacs Lisp from
-babashka and get the result back as EDN, or read an org-mode file *through
-Emacs' real org-mode* and work with its structure as ordinary Clojure data.
+A [babashka pod](https://github.com/babashka/pods) that exposes Emacs to babashka scripts.
 
-> babashka drives, Emacs is the engine.
+## But why?
 
-## Why
+I got the idea for this project when I was trying out [clime](https://github.com/cosmicz/clime) to expose some elisp functions as a command line (CLI) tool. 
+It worked, but I wasn't sure I wanted to learn another CLI framework. What if I could use [lambdaisland/cli][lambdaisland] or [babashka/cli][bb-cli] 
+instead? With this pod, you can!
 
-babashka is a fast, scriptable Clojure for the shell. Emacs Lisp is decades of
-batteries-included text processing — and, above all, the canonical, correct
-implementation of org-mode. This pod lets you keep each side doing what it is
-good at:
+NB: This pod does not require emacs. It will try to download it when not available, and use it as a library. See the Requirements section.
 
-- **babashka** is the *driver*: argument parsing, control flow, data wrangling,
-  shelling out, talking to the rest of your toolchain.
-- **Emacs Lisp** is the *engine*: parsing and manipulating text with libraries
-  that already exist and are battle-tested.
+Is it crazy? yes. But it may already be useful for those of us with a large amount of elisp we have built up over time, and want to use it beyond the editor.
 
-The killer use case is **org-mode**. Instead of re-implementing an org parser in
-Clojure (and getting the edge cases wrong), you ask the real org-mode to read
-the file and hand you back a structured outline as EDN. From there it is just
-Clojure data — `tree-seq`, `filter`, `map`, whatever you like.
+I'm not sure this can be stable, or how this project can go :) File an issue if there is something you need.
+
+[lambdaisland]: https://github.com/lambdaisland/cli
+[bb-cli]: https://github.com/babashka/cli
+
+## Org mode
+
+Emacs bundles org mode, a very feature-rich markup language, with its own library for parsing, executing code blocks, exporting documents and source blocks (tangling), etc. 
+
+There are org mode parsers in many languages, including Clojure. These will be the right choice almost always :)
+
+However, iff you want to 
+- use the "official" org mode parser (emacs)
+- manage to-dos, schedules, agendas using elisp
+- tangle files
+- execute code blocks
+
+this project might do the trick.
 
 ## Requirements
 
@@ -74,6 +81,13 @@ analysis over the EDN it gets back:
 ```
 bb examples/org-outline.clj            # uses examples/sample.org
 bb examples/org-outline.clj some.org   # or your own file
+```
+
+A second example treats an org file as an executable **runbook** — each named
+src block is a step, and babashka runs them by name and works with the output:
+
+```
+bb examples/org-execute.clj            # runs examples/runbook.org
 ```
 
 Output:
@@ -143,19 +157,30 @@ predictability):
 
 ### `pod.babashka.emacs.org`
 
-All three read an org file through real org-mode in a throwaway buffer.
+Each reads or runs an org file through real org-mode in a throwaway buffer.
 
 | Var         | Args              | Returns                                          | Notes |
 |-------------|-------------------|--------------------------------------------------|-------|
 | `outline`   | `[path]` / `[path opts]` | `{:file :title :children [node ...]}`     | Nested headline tree. `:title` is the `#+TITLE:` keyword (may be `nil`). |
 | `headlines` | `[path]` / `[path opts]` | vector of nodes (flat, document order)    | Same nodes as `outline` but un-nested (no `:children`). |
 | `to-edn`    | `[path]` / `[path opts]` | `{:file :title :children [node ...]}`     | Like `outline`, but every node also gets a `:body` (the entry's text, excluding subheadings). |
+| `execute`   | `[path]` / `[path opts]` | the block's result, as EDN                | Runs one org-babel src block and returns its value. Pick the block with `opts`; see below. The block's language backend autoloads (`sh`/`bash`/… → `ob-shell`, else `ob-LANG`). `org-confirm-babel-evaluate` is bound to `nil`, so blocks run without prompting. |
 
 `opts` is an EDN map. Recognized keys:
 
-| Opt          | Type | Effect |
-|--------------|------|--------|
-| `:max-level` | int  | Only include headlines at or above this depth (level ≤ N). |
+| Opt          | Type   | Used by      | Effect |
+|--------------|--------|--------------|--------|
+| `:max-level` | int    | the readers  | Only include headlines at or above this depth (level ≤ N). |
+| `:name`      | string | `execute`    | Run the block whose `#+name:` matches. |
+| `:index`     | int    | `execute`    | Run the Nth src block (0-based, document order). |
+
+`execute` with no `:name`/`:index` runs the file's sole src block, or errors if
+there are several. Out-of-range `:index` and unknown `:name` both error.
+
+```clojure
+(org/execute "examples/sample.org" {:index 0})  ;=> "hello"   ; the echo block
+(org/execute "tasks.org" {:name "deploy"})       ; run the block named "deploy"
+```
 
 ```clojure
 (org/headlines "examples/sample.org" {:max-level 1})
@@ -274,12 +299,14 @@ src/pod_babashka_emacs/
   emacs.clj                   # Emacs resolution / portable-build download
 resources/
   pod-emacs.el                # the elisp brain: pod protocol loop + dispatch
-  pod-emacs-org.el            # org-mode -> EDN (outline / headlines / to-edn)
+  pod-emacs-org.el            # org-mode -> EDN (outline / headlines / to-edn / execute)
   pod-emacs-util.el           # shared elisp helpers (hash-tables, EDN encode)
 vendor/                       # vendored elisp deps (bencode.el, parseclj, parseedn)
 examples/
-  org-outline.clj             # flagship example
+  org-outline.clj             # flagship example: read org -> EDN -> analyze
+  org-execute.clj             # run an org file as a runbook of named src blocks
   sample.org                  # sample org file
+  runbook.org                 # named src blocks driven by org-execute.clj
 docs/
   design.md                   # full architecture
   adr/0001-transport-architecture.md

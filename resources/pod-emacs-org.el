@@ -102,6 +102,28 @@ Children are appended under :children only when present (leaves omit the key)."
   "Look up KEY in OPTS, which may be a hash-table (from parseedn) or nil."
   (when (hash-table-p opts) (gethash key opts)))
 
+(defun pod-emacs-org--require-lang (lang)
+  "Load the org-babel backend for LANG (a string) if not already present.
+`emacs --batch -Q' loads no babel languages, so a block's backend must be
+required before it can run.  Shell dialects map to `ob-shell'; everything
+else falls back to `ob-LANG'."
+  (when lang
+    (let* ((l (downcase lang))
+           (feature (pcase l
+                      ((or "sh" "bash" "shell" "zsh" "fish" "csh" "ksh") 'ob-shell)
+                      ((or "elisp" "emacs-lisp") 'ob-emacs-lisp)
+                      (_ (intern (concat "ob-" l))))))
+      (unless (fboundp (intern (concat "org-babel-execute:" l)))
+        (require feature nil t)))))
+
+(defun pod-emacs-org--block-positions ()
+  "Return a list of buffer positions, one per src block, in document order."
+  (let ((positions '()))
+    (goto-char (point-min))
+    (while (ignore-errors (org-babel-next-src-block))
+      (push (point) positions))
+    (nreverse positions)))
+
 (defun pod-emacs-org--file-keyword (kw)
   "Return the value of buffer keyword KW (e.g. \"TITLE\"), or nil."
   (cadr (assoc-string kw (org-collect-keywords (list kw)) t)))
@@ -134,6 +156,40 @@ Children are appended under :children only when present (leaves omit the key)."
     (let* ((max-level (pod-emacs-org--opt opts :max-level))
            (flat (pod-emacs-org--collect nil max-level)))
       (vconcat (mapcar #'cdr flat)))))
+
+(defun pod-emacs-org-execute (path &optional opts)
+  "Execute a source block in org file PATH and return its result.
+OPTS is an EDN map selecting which block to run:
+  :name  <string>  the block whose `#+name:' matches
+  :index <int>     the Nth src block, 0-based, in document order
+If neither key is given and the file holds exactly one src block, run it;
+otherwise signal an error so the caller disambiguates."
+  (pod-emacs-org--with-file path
+    (setq default-directory
+          (or (file-name-directory (expand-file-name path)) default-directory))
+    (let ((org-confirm-babel-evaluate nil)
+          (name  (pod-emacs-org--opt opts :name))
+          (index (pod-emacs-org--opt opts :index)))
+      (cond
+       (name
+        (let ((pos (org-babel-find-named-block name)))
+          (unless pos (error "No src block named: %s" name))
+          (goto-char pos)))
+       (index
+        (let ((positions (pod-emacs-org--block-positions)))
+          (unless (and (integerp index) (>= index 0) (< index (length positions)))
+            (error "Block index %s out of range (file has %d)"
+                   index (length positions)))
+          (goto-char (nth index positions))))
+       (t
+        (let ((positions (pod-emacs-org--block-positions)))
+          (cond
+           ((null positions) (error "No src blocks in %s" path))
+           ((= (length positions) 1) (goto-char (car positions)))
+           (t (error "%d src blocks in %s; pass :name or :index"
+                     (length positions) path))))))
+      (pod-emacs-org--require-lang (car (org-babel-get-src-block-info t)))
+      (org-babel-execute-src-block))))
 
 (provide 'pod-emacs-org)
 ;;; pod-emacs-org.el ends here

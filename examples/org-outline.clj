@@ -1,5 +1,5 @@
 #!/usr/bin/env bb
-;; Flagship example: a babashka driver reads an org file *through Emacs* and
+;; A babashka driver reads an org file *through Emacs* and
 ;; works with the result as ordinary EDN/Clojure data.
 ;;
 ;;   bb examples/org-outline.clj [path/to/file.org]

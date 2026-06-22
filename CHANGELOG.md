@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `pod.babashka.emacs.org/execute` — run a single org-babel src block and return
+  its result as EDN. Select the block with `:name` or `:index` (0-based); a
+  lone block runs with no selector. The language backend autoloads (shell
+  dialects → `ob-shell`, else `ob-LANG`) and `org-confirm-babel-evaluate` is
+  bound to `nil` so blocks run unattended under `emacs --batch`.
+
 ## [0.1.0] - 2026-06-21
 
 Initial release of `pod-babashka-emacs`, a babashka pod that exposes Emacs to
