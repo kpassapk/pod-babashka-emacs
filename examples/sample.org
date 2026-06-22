@@ -1,0 +1,25 @@
+#+TITLE: Project Roadmap
+#+AUTHOR: Kyle
+
+* Planning
+  Some intro text about planning.
+** TODO [#A] Define scope :urgent:planning:
+   SCHEDULED: <2026-06-25 Thu>
+   :PROPERTIES:
+   :CUSTOM_ID: scope
+   :EFFORT:   2h
+   :END:
+   We need to nail down what is in and out.
+*** DONE Gather requirements
+*** TODO Write one-pager
+** TODO Pick stack
+   :PROPERTIES:
+   :CUSTOM_ID: stack
+   :END:
+* Implementation
+** TODO Build the pod :dev:
+   DEADLINE: <2026-07-01 Wed>
+*** TODO Transport layer
+*** TODO Org reader
+* Done
+** DONE Initial spike :dev:

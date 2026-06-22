@@ -20,25 +20,13 @@
 (require 'bencode)
 (require 'parseedn)
 (require 'cl-lib)
+(require 'pod-emacs-util)
+(require 'pod-emacs-org)
 
 (defvar pod-emacs--in-buffer-name " *pod-emacs-in*"
   "Name of the unibyte buffer accumulating raw bencode bytes from stdin.")
 
 ;;;; ---------------------------------------------------------------- helpers
-
-(defun pod-emacs--ht (&rest pairs)
-  "Build an `equal' hash-table from PAIRS (k1 v1 k2 v2 ...)."
-  (let ((h (make-hash-table :test 'equal :size (max 1 (/ (length pairs) 2)))))
-    (while pairs
-      (puthash (car pairs) (cadr pairs) h)
-      (setq pairs (cddr pairs)))
-    h))
-
-(defun pod-emacs--encode-edn (val)
-  "Encode elisp VAL as an EDN string, falling back to a string repr."
-  (condition-case _
-      (parseedn-print-str val)
-    (error (parseedn-print-str (format "%S" val)))))
 
 (defun pod-emacs--send (ht)
   "Bencode-encode reply HT, base64 it, and write one line to stdout."
