@@ -1,10 +1,6 @@
 #+TITLE: Release Runbook
 
 * Steps
-  A literate runbook: each step below is a *named* org-babel src block.
-  A babashka driver runs the steps by name through the pod and works with
-  the captured output as ordinary data. Mixed languages are fine — the pod
-  autoloads each block's backend.
 
 #+name: env
 #+begin_src sh
