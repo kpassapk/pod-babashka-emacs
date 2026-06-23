@@ -9,7 +9,7 @@ echo "$(uname -s) $(uname -m)"
 
 #+name: build
 #+begin_src sh
-echo "artifact-1.0.0.tgz"
+sleep 8 && echo "your build is ready!"
 #+end_src
 
 #+name: size

@@ -8,6 +8,11 @@
 ;; org-mode owns the literate document and the babel machinery; babashka owns
 ;; the orchestration, the UI, and whatever you do with the results.  The TUI is
 ;; built on JLine, which ships *inside* babashka — no extra dependency.
+;;
+;; Blocks are run *asynchronously* via the pod protocol (pods/invoke + handlers):
+;; the invoke returns immediately and the result is delivered on a background
+;; thread, so a slow step (say `sleep 8`) animates a spinner instead of freezing
+;; the whole UI until the result lands.
 
 (require '[babashka.pods :as pods]
          '[clojure.java.io :as io]
@@ -21,7 +26,7 @@
 (def org-file (or (first *command-line-args*)
                   (.getPath (io/file here "runbook.org"))))
 
-(pods/load-pod [pod])
+(def pod-id (:pod/id (pods/load-pod [pod])))
 (require '[pod.babashka.emacs :as emacs]
          '[pod.babashka.emacs.org :as org])
 
@@ -98,20 +103,37 @@
 
 ;;;; ------------------------------------------------------------------- running
 
+(def spinner ["⠋" "⠙" "⠹" "⠸" "⠼" "⠴" "⠦" "⠧" "⠇" "⠏"])
+
 (defn run-block!
-  "Execute B through the pod and show the result; wait for a keypress."
+  "Run B through the pod *asynchronously* and show the result.
+  pods/invoke returns at once; the success/error handler delivers to a promise
+  on the pod's reader thread, so we can animate a spinner while Emacs works."
   [terminal b]
-  (let [w (.writer terminal)
-        result (try (org/execute org-file (block-selector b))
-                    (catch Exception e {::error (ex-message e)}))]
-    (.print w (str (clear) (show-cursor)
-                   "Ran " (block-label b) "\r\n\r\n"
-                   (if (and (map? result) (::error result))
-                     (str "ERROR: " (::error result))
-                     (str "=> " (pr-str result)))
-                   "\r\n\r\nPress any key to return …"))
-    (.flush w)
-    (read-key (.reader terminal))))
+  (let [w      (.writer terminal)
+        label  (block-label b)
+        result (promise)]
+    (pods/invoke pod-id 'pod.babashka.emacs.org/execute
+                 [org-file (block-selector b)]
+                 {:handlers {:success #(deliver result [:ok %])
+                             :error   #(deliver result [:err (:ex-message %)])}})
+    (loop [i 0]
+      (let [r (deref result 120 ::pending)]               ; ~8 fps, non-blocking
+        (if (= r ::pending)
+          (do (.print w (str (clear) (hide-cursor)
+                             "Running " label " " (nth spinner (mod i (count spinner)))
+                             "\r\n\r\n(Emacs is working — the block is still running)"))
+              (.flush w)
+              (recur (inc i)))
+          (let [[status val] r]
+            (.print w (str (clear) (show-cursor)
+                           "Ran " label "\r\n\r\n"
+                           (if (= status :ok)
+                             (str "=> " (pr-str val))
+                             (str "ERROR: " val))
+                           "\r\n\r\nPress any key to return …"))
+            (.flush w)
+            (read-key (.reader terminal))))))))
 
 (defn tui [terminal blocks]
   (let [reader (.reader terminal)
