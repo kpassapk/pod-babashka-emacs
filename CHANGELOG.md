@@ -21,6 +21,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   lone block runs with no selector. The language backend autoloads (shell
   dialects → `ob-shell`, else `ob-LANG`) and `org-confirm-babel-evaluate` is
   bound to `nil` so blocks run unattended under `emacs --batch`.
+- `pod.babashka.emacs.devops` namespace — drive the external `devops` package
+  (org-babel tangle/execute to remote TRAMP targets) over a file path. `tangle`
+  writes a heading's src blocks to its target(s) — selected by `:heading`,
+  `:custom-id`, or `:all` — and returns `{:tag :target :files}` per target;
+  `execute` runs one block (picked by `:name`/`:index`) against its heading's
+  target. The package is installed on first `require` via `use-package` `:vc`.
+- `pod.babashka.emacs.calc` namespace — hand arithmetic to Emacs' built-in Calc.
+  `eval` evaluates a Calc algebraic expression (big integers, exact fractions,
+  matrices, symbolic algebra) and `convert` re-expresses a quantity in target
+  units (e.g. `"2 in"` → `"5.08 cm"`). Both return Calc's formatted result
+  string; a malformed expression throws with Calc's parser message.
+- `pod.babashka.emacs.project` namespace — read Emacs' built-in `project`
+  library as data. `root` returns the absolute root of the project enclosing a
+  path; `files` returns its tracked files (absolute, or relative with
+  `{:relative true}`), using the same VC-aware detection Emacs uses
+  interactively.
+- `pod.babashka.emacs.org-roam` namespace — read an org-roam knowledge graph as
+  EDN. `nodes` returns every node in a roam directory (`:id`, `:title`, `:file`,
+  `:level`, `:tags`); `backlinks` returns the references to a node `:id`
+  (`:source-id`, `:source-title`, `:point`). Both take `:directory` (defaults to
+  `org-roam-directory`) and sync the org-roam db on each call. The package is an
+  external dependency, installed on first `require` via `use-package`/`:ensure`.
 
 ## [0.1.0] - 2026-06-21
 

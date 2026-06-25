@@ -126,7 +126,9 @@ on stdout stays clean.
 
 ## API reference
 
-Payload format is **EDN**. The pod exposes two namespaces.
+Payload format is **EDN**. The pod exposes a core namespace
+(`pod.babashka.emacs`) plus a set of feature namespaces that load lazily on
+first `require`.
 
 ### `pod.babashka.emacs`
 
@@ -214,6 +216,113 @@ are always present; the rest appear only when the headline has them:
 | `:deadline`   | string           | no      | `DEADLINE:` timestamp, raw. |
 | `:children`   | vector of node   | no      | Sub-headlines (omitted on leaves). |
 | `:body`       | string           | no      | Entry text. Only from `to-edn`. |
+
+### `pod.babashka.emacs.calc`
+
+Hand arbitrary-precision arithmetic, exact fractions, units, and symbolic
+algebra to Emacs' built-in **Calc** and get the formatted result back as a
+string.
+
+| Var       | Args           | Returns       | Notes |
+|-----------|----------------|---------------|-------|
+| `eval`    | `[expr]`       | result string | `expr` is a Calc algebraic expression (e.g. `"2^100"`, `"sqrt(2)"`, `"evalv(pi)"`). Big integers, exact fractions, matrices and symbolic algebra all work. |
+| `convert` | `[expr units]` | result string | Re-express `expr` (which carries its own units) in the target `units`. |
+
+Precision is Calc's default; there is no per-call precision knob — Calc caches
+precision in process-global state and the Emacs child is long-lived, so a change
+would leak into unrelated later calls. Pass an explicit form like `"evalv(pi)"`
+for numeric output. A malformed expression throws with Calc's parser message.
+
+```clojure
+(calc/eval "2^100")           ;=> "1267650600228229401496703205376"
+(calc/eval "sqrt(2)")         ;=> "1.41421356237"
+(calc/convert "2 in" "cm")    ;=> "5.08 cm"
+(calc/convert "55 mph" "kph") ;=> "88.51392 kph"
+```
+
+### `pod.babashka.emacs.project`
+
+Point Emacs' built-in **`project`** library at a path and read the enclosing
+project's root and tracked files, using the same VC-aware detection Emacs uses
+interactively.
+
+| Var     | Args                     | Returns           | Notes |
+|---------|--------------------------|-------------------|-------|
+| `root`  | `[path]`                 | root dir (string) | Absolute path of the project enclosing `path`. Throws if `path` is in no project. |
+| `files` | `[path]` / `[path opts]` | vector of paths   | The project's tracked files. With `{:relative true}` the paths are relative to the root; otherwise absolute. |
+
+`path` may be any file or directory inside the project.
+
+```clojure
+(project/root ".")                   ;=> "/home/me/src/myproj/"
+(project/files "." {:relative true}) ;=> ["README.md" "src/core.clj" ...]
+```
+
+### `pod.babashka.emacs.org-roam`
+
+Read an [org-roam](https://www.orgroam.com/) knowledge graph as data: the nodes
+in a roam directory and the backlinks pointing at any one of them. org-roam is
+an external package, so the pod installs it on first `require` (via
+`use-package` with `:ensure`).
+
+| Var         | Args            | Returns             | Notes |
+|-------------|-----------------|---------------------|-------|
+| `nodes`     | `[]` / `[opts]` | vector of node maps | Every node in the roam directory. Each: `:id`, `:title`, `:file`, `:level`, `:tags`. |
+| `backlinks` | `[opts]`        | vector of link maps | Backlinks to the node `:id`. Each: `:source-id`, `:source-title`, `:point`. |
+
+`opts` is an EDN map. Recognized keys:
+
+| Opt          | Type   | Used by     | Effect |
+|--------------|--------|-------------|--------|
+| `:directory` | string | both        | The org-roam directory to read (defaults to the configured `org-roam-directory`). |
+| `:id`        | string | `backlinks` | The node whose backlinks to return (required). |
+
+The org-roam SQLite db is synced on each call, so results reflect the
+directory's current contents.
+
+```clojure
+(org-roam/nodes {:directory "~/roam"})
+;;=> [{:id "a1b2…" :title "Zettelkasten" :file "~/roam/zk.org" :level 0 :tags []}
+;;    ...]
+(org-roam/backlinks {:directory "~/roam" :id "a1b2…"})
+;;=> [{:source-id "c3d4…" :source-title "Note-taking" :point 312}]
+```
+
+### `pod.babashka.emacs.devops`
+
+Bridge the external [devops](https://github.com/kpassapk/devops.el) package —
+which tangles and runs org-babel src blocks against remote TRAMP targets — into
+the pod. devops' own commands are interactive and act on the buffer at point;
+this namespace drives its noninteractive engine over a file path passed from
+babashka. The package is installed on first `require` via `use-package` with
+`:vc`.
+
+| Var       | Args     | Returns               | Notes |
+|-----------|----------|-----------------------|-------|
+| `tangle`  | `[opts]` | vector of result maps | Tangle a heading's src blocks to its devops target(s). Each result: `:tag` (the heading's target tag), `:target` (the resolved TRAMP path), `:files` (count of files written). |
+| `execute` | `[opts]` | the block's result    | Run one src block against its enclosing heading's target. Pick the block like `org/execute` (`:name` / `:index`). |
+
+`opts` is an EDN map:
+
+| Opt          | Type   | Used by   | Effect |
+|--------------|--------|-----------|--------|
+| `:file`      | string | both      | Path to the org file (**required**). |
+| `:heading`   | string | `tangle`  | Tangle the heading with this exact title. |
+| `:custom-id` | string | `tangle`  | Tangle the heading with this `CUSTOM_ID` (stable across title edits). |
+| `:all`       | bool   | `tangle`  | Tangle every target-tagged heading in the file instead. |
+| `:name`      | string | `execute` | Run the block whose `#+name:` matches. |
+| `:index`     | int    | `execute` | Run the Nth src block (0-based, document order). |
+
+`tangle` needs exactly one of `:heading`, `:custom-id`, or `:all`. A heading's
+target tag resolves to a `:dir` that devops injects into the block's babel
+params, so the block tangles/runs on its target. `org-confirm-babel-evaluate` is
+bound to `nil`.
+
+```clojure
+(devops/tangle {:file "infra.org" :all true})
+;;=> [{:tag "web01" :target "/ssh:web01:/etc/nginx/" :files 2} ...]
+(devops/execute {:file "infra.org" :name "deploy"})
+```
 
 ### Errors
 
@@ -309,6 +418,10 @@ src/pod_babashka_emacs/
 resources/
   pod-emacs.el                # the elisp brain: pod protocol loop + dispatch
   pod-emacs-org.el            # org-mode -> EDN (outline / headlines / to-edn / execute)
+  pod-emacs-calc.el           # Calc -> EDN (eval / convert)
+  pod-emacs-project.el        # project.el -> EDN (root / files)
+  pod-emacs-org-roam.el       # org-roam -> EDN (nodes / backlinks)
+  pod-emacs-devops.el         # devops.el -> EDN (tangle / execute)
   pod-emacs-util.el           # shared elisp helpers (hash-tables, EDN encode)
 vendor/                       # vendored elisp deps (bencode.el, parseclj, parseedn)
 examples/

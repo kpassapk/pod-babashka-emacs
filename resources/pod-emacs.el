@@ -54,10 +54,14 @@ NS-NAME is the fully-qualified namespace string; VARS is an alist of
 
 (defvar pod-emacs--deferred
   '(("pod.babashka.emacs.org" . pod-emacs-org)
+    ("pod.babashka.emacs.calc" . pod-emacs-calc)
+    ("pod.babashka.emacs.project" . pod-emacs-project)
     ("pod.babashka.emacs.devops" .
      (pod-emacs-devops . (:use-package devops
 				       :ensure t
-				       :vc (:url "https://github.com/kpassapk/devops.el")))))
+				       :vc (:url "https://github.com/kpassapk/devops.el"))))
+    ("pod.babashka.emacs.org-roam" .
+     (pod-emacs-org-roam . (:use-package org-roam :ensure t))))
   "Alist of clojure namespace (string) -> deferred elisp feature SPEC.
 On the first `load-ns' for a namespace its SPEC is resolved, the feature
 `require'd, and the module is expected to `pod-emacs-register' as it loads.
