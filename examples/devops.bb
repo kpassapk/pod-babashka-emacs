@@ -16,7 +16,6 @@
 
 (prn (devops/tangle {:file org-file :heading "Upload a file"}))
 
-;; Execute a code block
+;; Execute a code block on the heading's target
 
-;; (devops/)
-
+(prn (devops/execute {:file org-file :name "disk-free"}))

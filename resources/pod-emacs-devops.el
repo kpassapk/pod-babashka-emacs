@@ -1,21 +1,31 @@
 ;;; pod-emacs-devops.el --- devops.el -> EDN for pod-babashka-emacs -*- lexical-binding: t; -*-
 ;;; Commentary:
-;; Bridge the `devops' package (org-babel tangle to remote TRAMP targets) into
-;; the pod.  devops' commands are interactive and operate on the current org
-;; buffer at point; here we drive its noninteractive engine over a file passed
-;; from babashka.
+;; Bridge the `devops' package (org-babel tangle/execute to remote TRAMP
+;; targets) into the pod.  devops' commands are interactive and operate on the
+;; current org buffer at point; here we drive its noninteractive engine over a
+;; file passed from babashka.
 ;;
-;;   pod.babashka.emacs.devops/tangle  (OPTS)  -> [{:tag :target :files}]
+;;   pod.babashka.emacs.devops/tangle   (OPTS)  -> [{:tag :target :files}]
+;;   pod.babashka.emacs.devops/execute  (OPTS)  -> <block result>
 ;;
-;; OPTS is an EDN map; recognized keys:
+;; OPTS is an EDN map.  `tangle' recognizes:
 ;;   :file     <string>  path to the org file (required)
 ;;   :heading  <string>  exact headline title to tangle
 ;;   :all      <bool>    tangle every target-tagged heading instead
+;;
+;; `execute' recognizes:
+;;   :file     <string>  path to the org file (required)
+;;   :name     <string>  run the block whose `#+name:' matches
+;;   :index    <int>     run the Nth src block, 0-based, in document order
+;;
+;; A block's enclosing heading target tag is resolved to a :dir and injected
+;; into its babel params by `devops''s advice, so the block runs on its target.
 ;;; Code:
 
 (require 'org)
 (require 'devops)
 (require 'pod-emacs)
+(require 'pod-emacs-org)
 (require 'pod-emacs-util)
 
 (defmacro pod-emacs-devops--with-file (path &rest body)
@@ -64,11 +74,27 @@ headline in the file."
           (heading (devops-tangle-headline (current-buffer) heading))
           (t (error "tangle: pass :heading or :all"))))))))
 
+(defun pod-emacs-devops-execute (&optional opts)
+  "Execute a source block in an org file against its devops target.
+OPTS is an EDN map (see commentary).  Selects a block with :name or :index;
+with neither, the file must hold exactly one block.  The block's enclosing
+heading target tag resolves to a :dir, injected into the block's babel params
+by `devops''s `org-babel-execute-src-block' advice, so the block runs on its
+remote/local target.  Returns the block's result."
+  (let ((file (pod-emacs-devops--opt opts :file)))
+    (unless file (error "execute: missing :file"))
+    (pod-emacs-devops--with-file file
+      (let ((org-confirm-babel-evaluate nil))
+        (pod-emacs-org--goto-block file opts)
+        (pod-emacs-org--require-lang (car (org-babel-get-src-block-info t)))
+        (org-babel-execute-src-block)))))
+
 ;;;; ----------------------------------------------------------- registration
 
 (pod-emacs-register
  "pod.babashka.emacs.devops"
- `(("tangle" . ,#'pod-emacs-devops-tangle)))
+ `(("tangle"  . ,#'pod-emacs-devops-tangle)
+   ("execute" . ,#'pod-emacs-devops-execute)))
 
 (provide 'pod-emacs-devops)
 ;;; pod-emacs-devops.el ends here

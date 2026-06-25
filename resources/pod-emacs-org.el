@@ -199,6 +199,35 @@ Returns a vector of nodes; each is a hash-table with:
           (setq i (1+ i))))
       (vconcat (nreverse acc)))))
 
+(defun pod-emacs-org--goto-block (path opts)
+  "Move point to the src block in the current buffer selected by OPTS.
+OPTS is an EDN map; recognized keys:
+  :name  <string>  the block whose `#+name:' matches
+  :index <int>     the Nth src block, 0-based, in document order
+With neither key, require the file to hold exactly one src block.  PATH is
+used only for error messages.  Signals when the selection is ambiguous,
+missing, or out of range."
+  (let ((name  (pod-emacs-org--opt opts :name))
+        (index (pod-emacs-org--opt opts :index)))
+    (cond
+     (name
+      (let ((pos (org-babel-find-named-block name)))
+        (unless pos (error "No src block named: %s" name))
+        (goto-char pos)))
+     (index
+      (let ((positions (pod-emacs-org--block-positions)))
+        (unless (and (integerp index) (>= index 0) (< index (length positions)))
+          (error "Block index %s out of range (file has %d)"
+                 index (length positions)))
+        (goto-char (nth index positions))))
+     (t
+      (let ((positions (pod-emacs-org--block-positions)))
+        (cond
+         ((null positions) (error "No src blocks in %s" path))
+         ((= (length positions) 1) (goto-char (car positions)))
+         (t (error "%d src blocks in %s; pass :name or :index"
+                   (length positions) path))))))))
+
 (defun pod-emacs-org-execute (path &optional opts)
   "Execute a source block in org file PATH and return its result.
 OPTS is an EDN map selecting which block to run:
@@ -209,27 +238,8 @@ otherwise signal an error so the caller disambiguates."
   (pod-emacs-org--with-file path
     (setq default-directory
           (or (file-name-directory (expand-file-name path)) default-directory))
-    (let ((org-confirm-babel-evaluate nil)
-          (name  (pod-emacs-org--opt opts :name))
-          (index (pod-emacs-org--opt opts :index)))
-      (cond
-       (name
-        (let ((pos (org-babel-find-named-block name)))
-          (unless pos (error "No src block named: %s" name))
-          (goto-char pos)))
-       (index
-        (let ((positions (pod-emacs-org--block-positions)))
-          (unless (and (integerp index) (>= index 0) (< index (length positions)))
-            (error "Block index %s out of range (file has %d)"
-                   index (length positions)))
-          (goto-char (nth index positions))))
-       (t
-        (let ((positions (pod-emacs-org--block-positions)))
-          (cond
-           ((null positions) (error "No src blocks in %s" path))
-           ((= (length positions) 1) (goto-char (car positions)))
-           (t (error "%d src blocks in %s; pass :name or :index"
-                     (length positions) path))))))
+    (let ((org-confirm-babel-evaluate nil))
+      (pod-emacs-org--goto-block path opts)
       (pod-emacs-org--require-lang (car (org-babel-get-src-block-info t)))
       (org-babel-execute-src-block))))
 

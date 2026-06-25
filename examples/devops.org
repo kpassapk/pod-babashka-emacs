@@ -3,7 +3,20 @@
 
 * Upload a file                                                    :example1:
 
+From emacs: run =devops-tangle= somewhere in this heading
+From bb: =(devops/tangle {:file org-file :heading "Upload a file"})=
+
 #+begin_src yaml :tangle ~/foo.yaml
 ---
-foo: bar  
+foo: bar
+#+end_src
+
+* Check disk space                                                :example1:
+
+From bb: =(devops/execute {:file org-file :name "disk-free"})=
+Runs on the heading's target (example1), not locally.
+
+#+name: disk-free
+#+begin_src sh :results output
+df -h /
 #+end_src
