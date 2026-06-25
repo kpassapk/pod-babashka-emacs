@@ -9,9 +9,10 @@
 ;;   pod.babashka.emacs.devops/execute  (OPTS)  -> <block result>
 ;;
 ;; OPTS is an EDN map.  `tangle' recognizes:
-;;   :file     <string>  path to the org file (required)
-;;   :heading  <string>  exact headline title to tangle
-;;   :all      <bool>    tangle every target-tagged heading instead
+;;   :file       <string>  path to the org file (required)
+;;   :heading    <string>  exact headline title to tangle
+;;   :custom-id  <string>  CUSTOM_ID property of the heading to tangle
+;;   :all        <bool>    tangle every target-tagged heading instead
 ;;
 ;; `execute' recognizes:
 ;;   :file     <string>  path to the org file (required)
@@ -60,19 +61,21 @@ paths resolve as they would when the file is visited."
 (defun pod-emacs-devops-tangle (&optional opts)
   "Tangle an org file's source blocks to their devops TRAMP target(s).
 OPTS is an EDN map (see commentary).  Returns a list of {:tag :target :files}.
-Pass :heading to tangle one headline, or :all to tangle every target-tagged
-headline in the file."
-  (let ((file    (pod-emacs-devops--opt opts :file))
-        (heading (pod-emacs-devops--opt opts :heading))
-        (all     (pod-emacs-devops--opt opts :all)))
+Pass :heading or :custom-id to tangle one headline, or :all to tangle every
+target-tagged headline in the file."
+  (let ((file      (pod-emacs-devops--opt opts :file))
+        (heading   (pod-emacs-devops--opt opts :heading))
+        (custom-id (pod-emacs-devops--opt opts :custom-id))
+        (all       (pod-emacs-devops--opt opts :all)))
     (unless file (error "tangle: missing :file"))
     (pod-emacs-devops--with-file file
       (let ((org-confirm-babel-evaluate nil))
         (pod-emacs-devops--results->edn
          (cond
-          (all     (devops-tangle-all (current-buffer)))
-          (heading (devops-tangle-headline (current-buffer) heading))
-          (t (error "tangle: pass :heading or :all"))))))))
+          (all       (devops-tangle-all (current-buffer)))
+          (custom-id (devops-tangle-custom-id (current-buffer) custom-id))
+          (heading   (devops-tangle-headline (current-buffer) heading))
+          (t (error "tangle: pass :heading, :custom-id or :all"))))))))
 
 (defun pod-emacs-devops-execute (&optional opts)
   "Execute a source block in an org file against its devops target.

@@ -14,7 +14,7 @@
 
 ;; Tangle a file
 
-(prn (devops/tangle {:file org-file :heading "Upload a file"}))
+(prn (devops/tangle {:file org-file :custom-id "upload-file"}))
 
 ;; Execute a code block on the heading's target
 

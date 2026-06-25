@@ -2,9 +2,12 @@
 #+TARGET: /ssh:example1.com: (example1)
 
 * Upload a file                                                    :example1:
+:PROPERTIES:
+:CUSTOM_ID: upload-file
+:END:
 
 From emacs: run =devops-tangle= somewhere in this heading
-From bb: =(devops/tangle {:file org-file :heading "Upload a file"})=
+From bb: =(devops/tangle {:file org-file :custom-id "upload-file"})=
 
 #+begin_src yaml :tangle ~/foo.yaml
 ---
