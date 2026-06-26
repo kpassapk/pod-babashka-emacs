@@ -1,5 +1,8 @@
 # Babashka Emacs Pod
 
+![Status](https://img.shields.io/badge/status-alpha-blue)
+[![bb compatible](https://raw.githubusercontent.com/babashka/babashka/master/logo/badge.svg)](https://book.babashka.org#badges)
+
 A [babashka pod](https://github.com/babashka/pods) that exposes Emacs to babashka scripts.
 
 ## But why?
@@ -31,16 +34,15 @@ It implements the [pod protocol](https://github.com/babashka/pods#the-protocol) 
 - [org roam](https://github.com/org-roam/org-roam)
 - [devops.el](https://github.com/kpassapk/devops.el)
 
-Elisp package loading is deferred until required from Clojure. The goal of this project is to develop a large standard library
-of emacs packages, which users can pick a la carte.
-
-The pod downloads third party packages using `use-package` before use:
+The pod defers loading of elisp packages until they are required from Clojure. 
 
 ```
-(require '[pod.babashka.emacs.org-roam :as roam]) ;; org-roam downloaded and required here
+(require '[pod.babashka.emacs.org-roam :as roam]) ;; org-roam downloaded (if necessary) and required here
 ```
 
-Adding new packages is easy - see the Adding Libraries" section.
+Since loading is deferred, this repository can provide a large library of emacs packages, which users can pick _a la carte_.
+
+See the [Adding Libraries](#adding-libraries) section.
 
 ## Requirements
 

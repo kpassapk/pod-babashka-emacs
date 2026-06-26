@@ -2,14 +2,15 @@
   "The pod executable. Owns babashka-facing stdio and transcodes the raw bencode
   byte stream to/from base64 lines for an `emacs --batch' child.
 
-  See docs/adr/0001-transport-architecture.md."
+  See doc/adr/0001-transport-architecture.md."
   (:require [babashka.fs :as fs]
             [babashka.process :as p]
             [pod-babashka-emacs.emacs :as emacs])
   (:import [java.io InputStream OutputStream BufferedReader InputStreamReader
             FileOutputStream]
            [java.nio.charset StandardCharsets]
-           [java.util Base64 Arrays]))
+           [java.util Base64 Arrays])
+  (:refer-clojure :exclude [dec]))
 
 (def ^:private enc (Base64/getEncoder))   ; no line breaks
 (def ^:private dec (Base64/getDecoder))
@@ -54,7 +55,6 @@
         emacs-bin (emacs/resolve-emacs)
         logfile   (fs/file (emacs/cache-dir) "emacs.log")]
     (fs/create-dirs (emacs/cache-dir))
-    (emacs/log "using emacs:" emacs-bin (str "(stderr -> " logfile ")"))
     (let [err-stream (FileOutputStream. (fs/file logfile))
           proc (p/process [emacs-bin "--batch" "-Q"
                            "--eval" (str "(setq byte-compile-warnings nil "
